@@ -16,12 +16,16 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 #include <Adafruit_BMP280.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <WebSocketsServer.h>
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
 #define ssid "lmlmlmlm"
 #define password "klklkl"
 
+IPAddress staticIP(192,168,1,40);
+IPAddress gateway(192,168,1,1);
+IPAddress subnet(255,255,255,0);
 
 Adafruit_BMP280 bme;
 char message[20]; //taille max de 20 caractère pour le message, pour l'exemple
@@ -31,6 +35,7 @@ float temperature = 0;
 
 // http server
 ESP8266WebServer server ( 80 );
+WebSocketsServer webSocket(81);
 
 void setup(void) {
   Wire.begin(0,4);      
@@ -54,10 +59,12 @@ void setup(void) {
 
   connectwifi();
   initserver();
+  startWebSocket();
 }
 
 void initserver() {
   server.on ( "/", handleRoot );
+  server.on("/graph", handlegraph );
   server.begin();
   Serial.println ( "HTTP server started" );
 }
@@ -69,23 +76,44 @@ String apitemp() {
   return json;
 }
 
+String graphpage() {
+  String html = "<head><script src=\"https://cdn.plot.ly/plotly-latest.min.js\"></script></head><body><div id=\"graph\"></div></body><script>";
+  html += "trace = {y: [],  x: [],  mode: 'lines',  line: {color: '#80CAF6'}};Plotly.plot('graph', [trace]);var cnt = 0;websocket = new WebSocket(\"ws://\" + window.location.host + \":81\");";
+  html += "websocket.onmessage = function(evt) { trace.y.push(parseFloat(evt.data)); trace.x.push(new Date());  if (trace.x.length > 6000) {    trace.x.shift();    trace.y.shift();  }  Plotly.redraw('graph'); };";
+  html += "</script>";
+  return html;
+}
+
+void handlegraph() {
+  server.send(200, "text/html", graphpage());
+}
+
 void handleRoot() {
   server.send(200, "application/json", apitemp());
 }
 
 void loop() {
+  webSocket.loop();   
   server.handleClient();
   //tft.fillScreen(ST77XX_BLACK);
   tft.invertDisplay(false);
   temperature = bme.readTemperature();
-  sprintf(message, " %.2fC", temperature);
+  sprintf(message, " %.2f", temperature);
   testdrawtext(message,ST77XX_WHITE);
   //Serial.println(message);
   delay(500);
+  webSocket.broadcastTXT(message);
+}
+
+
+void startWebSocket() { 
+  webSocket.begin();          
+  Serial.println("WebSocket server started.");
 }
 
 void connectwifi() {
   WiFi.begin(ssid, password);
+  WiFi.config(staticIP, gateway, subnet);
   while (WiFi.status() != WL_CONNECTED) 
   {
      delay(500);
