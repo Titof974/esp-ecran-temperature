@@ -19,8 +19,8 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RS
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
-#define ssid "Livebox-A8B0"
-#define password "titof*101094/g33k"
+#define ssid "lmlmlmlm"
+#define password "klklkl"
 
 
 Adafruit_BMP280 bme;
